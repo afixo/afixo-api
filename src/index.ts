@@ -1,15 +1,17 @@
 /**
- * afixo-api — the session boundary.
+ * afixo-api — the session boundary, in two modes keyed by hostname.
  *
- *   browser ─/api/v1/*─► afixo-web ─service binding─► afixo-api ─► ${ORIGIN_URL}/v1/* ─► tunnel ─► gateway:8080
+ *   console  browser ─/api/v1/*─► afixo-web ─API binding─► afixo-api ─► ${ORIGIN_URL}/v1/* ─► tunnel ─► gateway:8080
+ *   machine  requester ─https://api.afixo.io/*─► afixo-web ─API binding─► afixo-api ─► ${MACHINE_ORIGIN_URL}/* ─► tunnel ─► gateway:8081
  *
  * This module only dispatches. The rules live next to what they protect:
  * csrf.ts, seal.ts, cookies.ts, origin.ts, handlers/*.
  */
 import { CSRF_COOKIE, SESSION_COOKIE, parseCookies } from "./cookies";
 import { csrfValid, isMutating, originAllowed } from "./csrf";
-import { type Env, parseAllowedOrigins } from "./env";
+import { type Env, parseAllowedOrigins, parseMachineHosts } from "./env";
 import { githubCallback, logout, refresh } from "./handlers/auth";
+import { handleMachine } from "./handlers/machine";
 import { passthrough } from "./handlers/proxy";
 import { json, requestIdFrom } from "./http";
 import { Router } from "./router";
@@ -26,7 +28,12 @@ export default {
     const url = new URL(request.url);
 
     try {
-      // afixo-web only ever hands us /api/*; anything else is a wiring mistake.
+      // Machine mode (api.afixo.io): its own allowlist, no cookies, no CSRF — see handlers/machine.ts.
+      if (parseMachineHosts(env.MACHINE_HOSTS).has(url.hostname)) {
+        return await handleMachine(request, env, url, requestId);
+      }
+
+      // Console mode: afixo-web only ever hands us /api/*; anything else is a wiring mistake.
       if (!url.pathname.startsWith("/api/")) return json(404, { error: "not_found" }, requestId);
 
       if (!env.SESSION_KEY || !env.ORIGIN_URL) {

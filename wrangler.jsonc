@@ -4,15 +4,20 @@
   "main": "src/index.ts",
   "compatibility_date": "2026-08-22",
 
-  // This Worker is only ever reached through afixo-web's `API` service binding.
+  // This Worker is only ever reached through afixo-web's `API` service binding —
+  // for the dashboard's /api/* (console mode) and for api.afixo.io (machine mode).
   // No workers.dev URL, no preview URLs, no routes — there is nothing public to hit.
   "workers_dev": false,
   "preview_urls": false,
   "observability": { "enabled": true },
 
   "vars": {
+    // console mode: the gateway's console listener (:8080) through the tunnel, behind Access
     "ORIGIN_URL": "https://origin.afixo.io",
-    "ALLOWED_ORIGINS": "https://afixo.io,https://www.afixo.io"
+    "ALLOWED_ORIGINS": "https://afixo.io,https://www.afixo.io",
+    // machine mode: requests whose hostname is listed go to the machine listener (:8081)
+    "MACHINE_HOSTS": "api.afixo.io",
+    "MACHINE_ORIGIN_URL": "https://origin-api.afixo.io"
   },
   // Secrets are never in this file. `wrangler types` reads this list, and
   // `wrangler deploy` refuses to ship until all of them exist on the Worker.
@@ -34,7 +39,9 @@
         "ORIGIN_URL": "https://origin-staging.afixo.io",
         // afixo-web-staging is served from the staging.afixo.io custom domain, never workers.dev:
         // a stable value, real TLS and the same __Host- cookie behaviour as production.
-        "ALLOWED_ORIGINS": "https://staging.afixo.io"
+        "ALLOWED_ORIGINS": "https://staging.afixo.io",
+        "MACHINE_HOSTS": "api-staging.afixo.io",
+        "MACHINE_ORIGIN_URL": "https://origin-api-staging.afixo.io"
       },
       "secrets": {
         "required": ["SESSION_KEY", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]

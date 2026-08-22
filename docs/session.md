@@ -5,6 +5,39 @@ the gateway — and why it is built this way. This document is the canonical
 description of the cookies and the CSRF rules; the gateway's REST surface and
 the session JSON it answers are canonical in `afixo-services/docs/api.md`.
 
+## Two surfaces, one Worker
+
+`afixo-web` owns every public hostname and hands two surfaces to this Worker
+over its `API` binding, always with the original URL. Which rules apply is
+decided by `new URL(request.url).hostname`, before anything else:
+
+| Hostname | Mode | Forwarded to | Who owns `Authorization` at the hop |
+|---|---|---|---|
+| anything not in `MACHINE_HOSTS` (`afixo.io`, `www.afixo.io`), `/api/v1/*` only | console | `${ORIGIN_URL}/v1/*` → tunnel → gateway `:8080` | the Worker: sealed cookie → bearer, plus the Access service token |
+| `MACHINE_HOSTS` (`api.afixo.io`; staging `api-staging.afixo.io`) | machine | `${MACHINE_ORIGIN_URL}${path}` → tunnel → gateway `:8081` | the requester: its own bearer / Basic credentials pass through untouched, plus the Access service token |
+
+Nothing public resolves to the tunnel (`origin.afixo.io`, `origin-api.afixo.io`
+and their `-staging` twins are only reachable with the service token); this
+Worker is the only way to either listener. `api.afixo.io` is a custom domain on
+`afixo-web`, not a tunnel hostname, and is never an Access application — see
+`docs/access.md`.
+
+The rest of this document is console mode: the session. **Machine mode has no
+session.** It is the product's API for requesters (OAuth2 client-credentials
+clients) and deliberately inverts two rules: it passes the client's
+`Authorization` through unchanged (the gateway validates it) and it never
+touches a cookie — no reading, no setting, no CSRF, no Origin check. CORS is
+enforced by the gateway's machine listener; its preflights are simply
+forwarded. Only five routes exist: `POST /oauth/token`, `GET /v1/disclose/*`,
+`GET /v1/purposes`, `GET /v1/health`, and `OPTIONS` on any of those paths.
+Everything else on a machine host — `/api/*` included, and the whole console
+surface — is `404 {"error":"not_found"}` without touching any origin, and a
+machine-host request never goes to `ORIGIN_URL`. What the two hops share:
+hop-by-hop, `Cookie`, `X-CSRF-Token` and client `CF-Access-Client-*` headers
+are stripped; the Access service token and `X-Request-Id` are added; redirects
+are relayed, never followed; the body streams through; `Set-Cookie` never
+comes back.
+
 ## The one rule
 
 **The browser never holds a token.** The gateway keeps its existing auth
@@ -136,16 +169,26 @@ ISO-8601; they are stored as unix seconds.
 - Never attaches Access headers unless **both** `CF_ACCESS_CLIENT_ID` and
   `CF_ACCESS_CLIENT_SECRET` are non-empty (local dev has neither).
 - Never has a public URL: `workers_dev: false`, `preview_urls: false`, no routes.
+- Never passes a client `Authorization` to the console listener, and never
+  rewrites the requester's on the machine hop.
+- Never sends a machine-host request to the console listener, and never
+  forwards `/api/*` from a machine host.
 
 ## What the other repos rely on
 
-- `afixo-web` forwards `/api/*` with `env.API.fetch(request)`, passing the
-  incoming `Request` through. An incoming Request has `redirect: "manual"`,
-  which is what lets the Worker's own `302`s reach the browser. A hand-built
-  `new Request(...)` without `redirect: "manual"` would follow them inside the
-  binding instead.
+- `afixo-web` forwards `/api/*` — and every request on its `api.afixo.io`
+  custom domain — with `env.API.fetch(request)`, passing the incoming `Request`
+  through with its original URL: the hostname is how this Worker picks the
+  mode, so `MACHINE_HOSTS` must list exactly what `afixo-web` forwards. An
+  incoming Request has `redirect: "manual"`, which is what lets the Worker's
+  own `302`s reach the browser. A hand-built `new Request(...)` without
+  `redirect: "manual"` would follow them inside the binding instead.
 - `afixo-web`'s client: same-origin `/api/v1/...`, `X-CSRF-Token` from the
   readable cookie on non-GET, single-flight refresh on 401, retry once.
 - The gateway's console listener (`:8080`, reached as `origin.afixo.io`
   behind Cloudflare Access *Service Auth*) answers the session JSON above on
-  callback and refresh, and `401` for a spent refresh token.
+  callback and refresh, and `401` for a spent refresh token. Its machine
+  listener (`:8081`, `origin-api.afixo.io`, same Access rule) validates
+  requester bearers and client credentials itself and answers CORS for
+  `https://afixo.io`, so the dashboard's API Explorer can call `api.afixo.io`
+  exactly as an integrator would.

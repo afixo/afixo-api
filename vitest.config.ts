@@ -27,6 +27,8 @@ export default defineConfig({
         bindings: {
           ORIGIN_URL: "http://origin.test",
           ALLOWED_ORIGINS: "https://afixo.io, http://localhost:4321",
+          MACHINE_HOSTS: "api.afixo.io, api.localhost",
+          MACHINE_ORIGIN_URL: "http://machine-origin.test",
           ...TEST_SECRETS,
         },
       },
