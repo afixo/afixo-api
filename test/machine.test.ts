@@ -128,28 +128,47 @@ describe("machine mode", () => {
     expect(sent.body).toBe("grant_type=client_credentials");
   });
 
-  it("forwards CORS preflights on every allowed path", async () => {
+  it("answers CORS preflights itself on every allowed path — the origin is never contacted", async () => {
     for (const path of ["/oauth/token", "/v1/disclose/alice", "/v1/purposes", "/v1/health"]) {
       origin?.restore();
-      origin = mockOrigin(
-        () =>
-          new Response(null, {
-            status: 204,
-            headers: { "access-control-allow-origin": "https://afixo.io", "access-control-allow-methods": "GET, POST" },
-          }),
-      );
+      origin = mockOrigin(() => new Response("must not be called", { status: 500 }));
       const res = await api(path, {
         method: "OPTIONS",
-        headers: { Origin: "https://afixo.io", "Access-Control-Request-Method": "POST" },
+        headers: {
+          Origin: "https://afixo.io",
+          "Access-Control-Request-Method": "POST",
+          "Access-Control-Request-Headers": "authorization",
+        },
       });
       expect(res.status, path).toBe(204);
+      expect(res.headers.get("access-control-allow-origin")).toBe("https://afixo.io");
       expect(res.headers.get("access-control-allow-methods")).toBe("GET, POST");
-      const sent = origin.calls[0]!.request;
-      expect(sent.method).toBe("OPTIONS");
-      expect(sent.url).toBe(`${env.MACHINE_ORIGIN_URL}${path}`);
-      expect(sent.headers.get("origin")).toBe("https://afixo.io"); // the gateway needs it for CORS
-      expect(sent.headers.get("access-control-request-method")).toBe("POST");
+      expect(res.headers.get("access-control-allow-headers")).toBe("authorization, content-type");
+      expect(res.headers.get("access-control-max-age")).toBe("600");
+      expect(res.headers.get("vary")).toBe("Origin");
+      expect(origin.calls, path).toHaveLength(0);
     }
+  });
+
+  it("refuses preflights from origins that are not the dashboard's, and preflights on unknown paths", async () => {
+    origin = mockOrigin(() => new Response("must not be called", { status: 500 }));
+    const foreign = await api("/v1/disclose/alice", {
+      method: "OPTIONS",
+      headers: { Origin: "https://evil.test", "Access-Control-Request-Method": "GET" },
+    });
+    expect(foreign.status).toBe(403);
+    expect(await foreign.json()).toEqual({ error: "forbidden_origin" });
+    expect(foreign.headers.get("access-control-allow-origin")).toBeNull();
+
+    const noOrigin = await api("/v1/purposes", { method: "OPTIONS" });
+    expect(noOrigin.status).toBe(403);
+
+    const unknownPath = await api("/v1/personas", {
+      method: "OPTIONS",
+      headers: { Origin: "https://afixo.io", "Access-Control-Request-Method": "GET" },
+    });
+    expect(unknownPath.status).toBe(404);
+    expect(origin.calls).toHaveLength(0);
   });
 
   it("forwards GET /v1/purposes and GET /v1/health", async () => {

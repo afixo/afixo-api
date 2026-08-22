@@ -26,9 +26,11 @@ The rest of this document is console mode: the session. **Machine mode has no
 session.** It is the product's API for requesters (OAuth2 client-credentials
 clients) and deliberately inverts two rules: it passes the client's
 `Authorization` through unchanged (the gateway validates it) and it never
-touches a cookie — no reading, no setting, no CSRF, no Origin check. CORS is
-enforced by the gateway's machine listener; its preflights are simply
-forwarded. Only five routes exist: `POST /oauth/token`, `GET /v1/disclose/*`,
+touches a cookie — no reading, no setting, no CSRF, no Origin check. CORS headers on real
+responses come from the gateway's machine listener (relayed); browser
+preflights are answered by this Worker from `ALLOWED_ORIGINS`, because a
+preflight carries no credentials and the Access-protected origin would refuse
+it. Only five routes exist: `POST /oauth/token`, `GET /v1/disclose/*`,
 `GET /v1/purposes`, `GET /v1/health`, and `OPTIONS` on any of those paths.
 Everything else on a machine host — `/api/*` included, and the whole console
 surface — is `404 {"error":"not_found"}` without touching any origin, and a

@@ -13,7 +13,7 @@ router) between the public site `afixo-web` and the private Rust gateway. It has
   headers. Everything below is about this mode unless it says otherwise.
 - **Machine** (hostname ∈ `MACHINE_HOSTS`; `api.afixo.io`): the product's API for requesters. Allowlist only —
   `POST /oauth/token`, `GET /v1/disclose/*`, `GET /v1/purposes`, `GET /v1/health`, `OPTIONS` on those (CORS
-  preflight, answered by the gateway) — to `${MACHINE_ORIGIN_URL}${path}`, no prefix stripping; all else `404`.
+  preflight, answered by this Worker from `ALLOWED_ORIGINS` — Access would reject a credential-less OPTIONS at the origin) — to `${MACHINE_ORIGIN_URL}${path}`, no prefix stripping; all else `404`.
 
 ## Hard rules (security invariants — never "simplify" these away)
 
