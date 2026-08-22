@@ -1,0 +1,29 @@
+{
+  "name": "afixo-api",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Afixo session boundary: sealed-cookie <-> bearer translation, CSRF and Cloudflare Access headers between afixo-web and the private gateway.",
+  "type": "module",
+  "packageManager": "pnpm@11.20.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "wrangler dev",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "check": "pnpm typecheck && pnpm test",
+    "deploy": "wrangler deploy --env=\"\"",
+    "deploy:staging": "wrangler deploy --env staging",
+    "types": "wrangler types --strict-vars=false",
+    "secrets:push": "scripts/push-secrets.sh"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-pool-workers": "^0.22.0",
+    "@types/node": "^24.13.3",
+    "typescript": "^5.9.3",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.125.0"
+  }
+}

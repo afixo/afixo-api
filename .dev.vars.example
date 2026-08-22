@@ -1,0 +1,12 @@
+# Copy to .dev.vars (gitignored). `wrangler dev` loads it; deployed Workers use `wrangler secret`.
+ORIGIN_URL=http://localhost:8080
+ALLOWED_ORIGINS=http://localhost:4321
+
+# 32 random bytes, base64url, no padding. Generate one with:
+#   node -e "console.log(require('node:crypto').randomBytes(32).toString('base64url'))"
+SESSION_KEY=<base64url 32 bytes>
+
+# Cloudflare Access service token. Leave both empty for local dev: the Worker only
+# attaches CF-Access-Client-* headers when BOTH are non-empty.
+CF_ACCESS_CLIENT_ID=
+CF_ACCESS_CLIENT_SECRET=

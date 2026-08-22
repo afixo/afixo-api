@@ -1,0 +1,14 @@
+node_modules/
+.wrangler/
+dist/
+
+# local secrets — never committed
+.dev.vars
+.dev.vars.*
+!.dev.vars.example
+.env
+.env.*
+.secrets.*
+
+.DS_Store
+.idea/

@@ -1,0 +1,44 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "afixo-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-22",
+
+  // This Worker is only ever reached through afixo-web's `API` service binding.
+  // No workers.dev URL, no preview URLs, no routes — there is nothing public to hit.
+  "workers_dev": false,
+  "preview_urls": false,
+  "observability": { "enabled": true },
+
+  "vars": {
+    "ORIGIN_URL": "https://origin.afixo.io",
+    "ALLOWED_ORIGINS": "https://afixo.io,https://www.afixo.io"
+  },
+  // Secrets are never in this file. `wrangler types` reads this list, and
+  // `wrangler deploy` refuses to ship until all of them exist on the Worker.
+  // Set them with `pnpm secrets:push <env>` (scripts/push-secrets.sh).
+  "secrets": {
+    "required": ["SESSION_KEY", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
+  },
+
+  "env": {
+    "staging": {
+      "name": "afixo-api-staging",
+      "workers_dev": false,
+      "preview_urls": false,
+      // `routes` is inheritable: leaving it out would mean "the production routes".
+      // An explicit empty list is load-bearing.
+      "routes": [],
+      // `vars` is NOT inheritable; every environment restates it in full.
+      "vars": {
+        "ORIGIN_URL": "https://origin-staging.afixo.io",
+        // afixo-web-staging is served from the staging.afixo.io custom domain, never workers.dev:
+        // a stable value, real TLS and the same __Host- cookie behaviour as production.
+        "ALLOWED_ORIGINS": "https://staging.afixo.io"
+      },
+      "secrets": {
+        "required": ["SESSION_KEY", "CF_ACCESS_CLIENT_ID", "CF_ACCESS_CLIENT_SECRET"]
+      }
+    }
+  }
+}

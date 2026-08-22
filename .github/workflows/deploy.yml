@@ -1,0 +1,54 @@
+name: deploy
+
+# Every push to master deploys **staging**, so staging always reflects master and
+# is worth trusting. Production is a deliberate promotion: run this workflow by
+# hand and pick `production`. Put a required reviewer on the `production`
+# environment in the repo settings to gate it.
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Wrangler environment to deploy
+        type: choice
+        options: [staging, production]
+        default: production
+
+# One deploy at a time per environment; queued, never cancelled mid-upload.
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      TARGET: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - run: pnpm check
+
+      # Secrets (SESSION_KEY, CF_ACCESS_CLIENT_*) are not deployed from CI: set them once per
+      # environment with `pnpm secrets:push <env>` — staging and production must not share a
+      # SESSION_KEY. wrangler refuses to deploy while any `secrets.required` entry is missing.
+      - name: Deploy (${{ env.TARGET }})
+        run: |
+          if [ "$TARGET" = "production" ]; then
+            pnpm run deploy
+          else
+            pnpm run deploy:staging
+          fi

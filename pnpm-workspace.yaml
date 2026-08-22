@@ -1,0 +1,6 @@
+# pnpm settings (pnpm 10+ keeps them here). Single package, no workspace members.
+# wrangler's local runtime (workerd) and esbuild need their postinstall scripts;
+# pnpm 11 blocks every other package's build scripts.
+allowBuilds:
+  esbuild: true
+  workerd: true
