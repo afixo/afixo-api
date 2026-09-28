@@ -36,6 +36,15 @@ export interface CookieOptions {
   httpOnly?: boolean;
   /** seconds; 0 clears the cookie */
   maxAge?: number;
+  /**
+   * Default Strict. The state cookie is Lax: a login ends with GitHub redirecting
+   * cross-site to the callback, whose `302 /app` continues that navigation, and
+   * Safari (WebKit) withholds Strict cookies for the whole redirect chain — the
+   * /app gate then bounces a freshly signed-in user back to /login. Lax is sent
+   * on top-level GETs, which is all the gate needs; the sealed session cookie and
+   * the csrf cookie stay Strict (they are only ever read on same-site requests).
+   */
+  sameSite?: "Strict" | "Lax";
 }
 
 // RFC 6265 cookie-octet: printable US-ASCII minus CTLs, space, `"`, `,`, `;`, `\`.
@@ -43,7 +52,7 @@ const COOKIE_OCTETS = /^[\x21\x23-\x2b\x2d-\x3a\x3c-\x5b\x5d-\x7e]*$/;
 
 export function serializeCookie(name: string, value: string, opts: CookieOptions = {}): string {
   if (!COOKIE_OCTETS.test(value)) throw new Error(`cookie ${name}: value contains illegal characters`);
-  const parts = [`${name}=${value}`, "Path=/", "Secure", "SameSite=Strict"];
+  const parts = [`${name}=${value}`, "Path=/", "Secure", `SameSite=${opts.sameSite ?? "Strict"}`];
   if (opts.httpOnly) parts.push("HttpOnly");
   if (opts.maxAge !== undefined) parts.push(`Max-Age=${Math.max(0, Math.floor(opts.maxAge))}`);
   return parts.join("; ");
@@ -70,7 +79,7 @@ export function sessionCookies(set: SessionCookieSet, nowSeconds = Date.now() / 
   return [
     serializeCookie(SESSION_COOKIE, set.sealed, { httpOnly: true, maxAge }),
     serializeCookie(CSRF_COOKIE, set.csrf, { maxAge }),
-    serializeCookie(STATE_COOKIE, encodeState(set.state), { maxAge }),
+    serializeCookie(STATE_COOKIE, encodeState(set.state), { maxAge, sameSite: "Lax" }),
   ];
 }
 

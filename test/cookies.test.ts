@@ -69,6 +69,13 @@ describe("clearing", () => {
   });
 });
 
+describe("serializeCookie sameSite", () => {
+  it("is Strict by default and Lax only when asked", () => {
+    expect(serializeCookie("x", "1")).toContain("SameSite=Strict");
+    expect(serializeCookie("x", "1", { sameSite: "Lax" })).toContain("SameSite=Lax");
+  });
+});
+
 describe("sessionCookies", () => {
   const state: StateCookie = { sub: "sub_1", handle: "valentin", roles: ["subject"], exp: 1_000_000 };
 
@@ -76,7 +83,7 @@ describe("sessionCookies", () => {
     const [session, csrf, st] = sessionCookies({ sealed: "SEALED", csrf: "CSRF", state }, 1_000_000 - 3600);
     expect(session).toBe(`${SESSION_COOKIE}=SEALED; Path=/; Secure; SameSite=Strict; HttpOnly; Max-Age=3600`);
     expect(csrf).toBe(`${CSRF_COOKIE}=CSRF; Path=/; Secure; SameSite=Strict; Max-Age=3600`);
-    expect(st).toBe(`${STATE_COOKIE}=${encodeState(state)}; Path=/; Secure; SameSite=Strict; Max-Age=3600`);
+    expect(st).toBe(`${STATE_COOKIE}=${encodeState(state)}; Path=/; Secure; SameSite=Lax; Max-Age=3600`);
     expect(csrf).not.toContain("HttpOnly"); // readable by afixo-web
     expect(st).not.toContain("HttpOnly");
   });

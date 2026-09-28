@@ -63,7 +63,7 @@ request   browser ──cookie──► afixo-api   opens the cookie, drops any 
 |---|---|---|
 | `__Host-afixo_session` | `HttpOnly; Secure; SameSite=Strict; Path=/` | sealed JSON `{"a":access,"r":refresh,"e":access_exp_unix}` |
 | `__Host-afixo_csrf` | `Secure; SameSite=Strict; Path=/` — readable | 32 random bytes, base64url |
-| `__Host-afixo_state` | `Secure; SameSite=Strict; Path=/` — readable | base64url JSON `{"sub","handle","roles":["subject"],"exp":refresh_exp_unix}` |
+| `__Host-afixo_state` | `Secure; SameSite=Lax; Path=/` — readable | base64url JSON `{"sub","handle","roles":["subject"],"exp":refresh_exp_unix}` |
 
 All three are set together on login, re-set together on refresh, and cleared
 together on logout or any failure. They share one lifetime: `Max-Age` runs out
@@ -145,8 +145,14 @@ before routing:
    header on every non-GET; same-origin requests never preflight, so the
    custom header costs nothing.
 
-`SameSite=Strict` is the third layer. The refresh and logout endpoints are
-POSTs and go through the same checks as everything else.
+`SameSite=Strict` on the session and csrf cookies is the third layer. The
+refresh and logout endpoints are POSTs and go through the same checks as
+everything else. The state cookie alone is `Lax`: a login ends with GitHub
+redirecting cross-site to the callback, and the `302 /app` that follows is part
+of that cross-site navigation. Safari withholds Strict cookies for the whole
+redirect chain, so with a Strict state cookie the `/app` gate bounced a freshly
+signed-in user back to `/login` (Chromium is lenient here). The state cookie is
+unsigned and cosmetic — nothing authorises on it — so Lax costs nothing.
 
 ## The endpoints
 

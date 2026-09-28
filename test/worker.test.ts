@@ -227,10 +227,14 @@ describe("GET /api/v1/auth/github/callback", () => {
     const cookies = setCookies(res);
     expect([...cookies.keys()].sort()).toEqual([CSRF_COOKIE, SESSION_COOKIE, STATE_COOKIE].sort());
     for (const c of cookies.values()) {
-      expect(c.attrs).toEqual(expect.arrayContaining(["Path=/", "Secure", "SameSite=Strict"]));
+      expect(c.attrs).toEqual(expect.arrayContaining(["Path=/", "Secure"]));
       expect(c.raw).not.toMatch(/Domain/i);
       expect(c.raw).not.toContain("Max-Age=0");
     }
+    // Only the cosmetic gate cookie is Lax (it must survive the redirect that continues GitHub's cross-site navigation).
+    expect(cookies.get(SESSION_COOKIE)!.attrs).toContain("SameSite=Strict");
+    expect(cookies.get(CSRF_COOKIE)!.attrs).toContain("SameSite=Strict");
+    expect(cookies.get(STATE_COOKIE)!.attrs).toContain("SameSite=Lax");
     expect(cookies.get(SESSION_COOKIE)!.attrs).toContain("HttpOnly");
     expect(cookies.get(CSRF_COOKIE)!.attrs).not.toContain("HttpOnly");
     expect(cookies.get(STATE_COOKIE)!.attrs).not.toContain("HttpOnly");

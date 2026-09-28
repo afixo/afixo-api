@@ -24,7 +24,7 @@ router) between the public site `afixo-web` and the private Rust gateway. It has
   trip the origin's reuse detection and kill the session.
 - **No KV, no Durable Object for sessions.** The cookie is the store. KV is eventually consistent and would
   replay a rotated refresh token.
-- **`__Host-` cookies only**: `Secure; Path=/`, no `Domain`, `SameSite=Strict`. Session cookie is `HttpOnly`;
+- **`__Host-` cookies only**: `Secure; Path=/`, no `Domain`, `SameSite=Strict` — except the cosmetic state cookie, which is `Lax` so the `302 /app` that continues GitHub's cross-site redirect still carries it in Safari (`docs/session.md`). Session cookie is `HttpOnly`;
   csrf and state cookies are readable. The state cookie is cosmetic — nothing authorises on it.
 - **CSRF has two layers** on every non-GET/HEAD/OPTIONS, checked before routing (`src/index.ts`):
   (1) `Origin` ∈ `ALLOWED_ORIGINS`, missing ⇒ `403 forbidden_origin`; (2) with a session cookie,
